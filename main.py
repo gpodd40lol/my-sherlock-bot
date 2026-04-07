@@ -1,6 +1,5 @@
 import os
-import asyncio
-import aiohttp
+import requests
 from aiogram import Bot, Dispatcher, executor, types
 from dotenv import load_dotenv
 
@@ -26,25 +25,24 @@ async def search(m: types.Message):
     query = m.text.strip()
     res = []
     
-    async with aiohttp.ClientSession() as session:
-        # Чекаем ник
-        for name, url in SITES.items():
-            try:
-                async with session.get(url + query, timeout=5) as r:
-                    if r.status == 200:
-                        res.append(f"✅ {name}: {url}{query}")
-            except: continue
-        
-        # Чекаем IP
-        ip_url = f"http://ip-api.com{query}?fields=status,country,city,isp"
+    # Чекаем ник
+    for name, url in SITES.items():
         try:
-            async with session.get(ip_url) as r:
-                data = await r.json()
-                if data.get('status') == 'success':
-                    res.append(f"\n🌐 IP: {data['country']}, {data['city']}\n🏢 ISP: {data['isp']}")
-        except: pass
+            r = requests.get(url + query, timeout=5)
+            if r.status_code == 200:
+                res.append(f"✅ {name}: {url}{query}")
+        except: continue
+    
+    # Чекаем IP
+    try:
+        r = requests.get(f"http://ip-api.com{query}", timeout=5)
+        data = r.json()
+        if data.get('status') == 'success':
+            res.append(f"\n🌐 IP: {data['country']}, {data['city']}\n🏢 ISP: {data['isp']}")
+    except: pass
 
-    await m.answer("\n".join(res) if res else "❌ Пусто.")
+    await m.answer("\n".join(res) if res else "❌ Ничего не найдено.")
 
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)
+    
