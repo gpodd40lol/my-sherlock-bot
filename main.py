@@ -1,15 +1,14 @@
 import os
+import telebot
 import requests
-from aiogram import Bot, Dispatcher, executor, types
 from dotenv import load_dotenv
 
+# Загружаем токен
 load_dotenv()
-TOKEN = os.getenv("BOT_TOKEN")
+token = os.getenv("BOT_TOKEN")
+bot = telebot.TeleBot(token)
 
-bot = Bot(token=TOKEN)
-dp = Dispatcher(bot)
-
-# Список сайтов для быстрой проверки
+# Список сайтов для поиска
 SITES = {
     "GitHub": "https://github.com",
     "VK": "https://vk.com",
@@ -17,16 +16,16 @@ SITES = {
     "OK": "https://ok.ru"
 }
 
-@dp.message_handler(commands=['start'])
-async def start(m: types.Message):
-    await m.answer("🕵️ Пришли ник или IP для поиска.")
+@bot.message_handler(commands=['start'])
+def start(m):
+    bot.send_message(m.chat.id, "🕵️‍♂️ **Шерлок готов.**\nПришли ник или IP для поиска.")
 
-@dp.message_handler()
-async def search(m: types.Message):
+@bot.message_handler(content_types=)
+def search(m):
     query = m.text.strip()
-    res = []
+    res = [f"🔍 **Результаты для:** `{query}`\n"]
     
-    # Поиск по нику
+    # 1. Поиск по нику
     for name, url in SITES.items():
         try:
             r = requests.get(url + query, timeout=5)
@@ -34,16 +33,22 @@ async def search(m: types.Message):
                 res.append(f"✅ {name}: {url}{query}")
         except: continue
     
-    # Поиск по IP
+    # 2. Поиск по IP
     try:
         r = requests.get(f"http://ip-api.com{query}", timeout=5)
         data = r.json()
         if data.get('status') == 'success':
-            res.append(f"\n🌐 IP: {data['country']}, {data['city']}\n🏢 ISP: {data['isp']}")
+            res.append(f"\n🌐 **IP Инфо:**\n📍 {data['country']}, {data['city']}\n🏢 Провайдер: {data['isp']}")
     except: pass
 
-    await m.answer("\n".join(res) if res else "❌ Ничего не найдено.")
+    # Отправка итога
+    final_text = "\n".join(res)
+    if len(res) <= 1:
+        bot.send_message(m.chat.id, "❌ Ничего не нашел.")
+    else:
+        bot.send_message(m.chat.id, final_text, parse_mode="Markdown", disable_web_page_preview=True)
 
 if __name__ == '__main__':
-    executor.start_polling(dp, skip_updates=True)
+    print("Бот запущен!")
+    bot.infinity_polling()
     
