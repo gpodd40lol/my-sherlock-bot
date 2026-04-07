@@ -9,6 +9,7 @@ TOKEN = os.getenv("BOT_TOKEN")
 bot = Bot(token=TOKEN)
 dp = Dispatcher(bot)
 
+# Список сайтов для быстрой проверки
 SITES = {
     "GitHub": "https://github.com",
     "VK": "https://vk.com",
@@ -18,14 +19,14 @@ SITES = {
 
 @dp.message_handler(commands=['start'])
 async def start(m: types.Message):
-    await m.answer("🕵️ Пришли ник или IP.")
+    await m.answer("🕵️ Пришли ник или IP для поиска.")
 
 @dp.message_handler()
 async def search(m: types.Message):
     query = m.text.strip()
     res = []
     
-    # Чекаем ник
+    # Поиск по нику
     for name, url in SITES.items():
         try:
             r = requests.get(url + query, timeout=5)
@@ -33,7 +34,7 @@ async def search(m: types.Message):
                 res.append(f"✅ {name}: {url}{query}")
         except: continue
     
-    # Чекаем IP
+    # Поиск по IP
     try:
         r = requests.get(f"http://ip-api.com{query}", timeout=5)
         data = r.json()
