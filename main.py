@@ -1,42 +1,53 @@
 import os
 import telebot
-import requests
 from dotenv import load_dotenv
+import osint_tools as osint # Импортируем наши инструменты
 
 load_dotenv()
-# Убедись, что в Render в Environment Variables добавлен BOT_TOKEN
-bot = telebot.TeleBot(os.getenv("BOT_TOKEN"))
-
-# Добавлены слэши в конце URL
-SITES = {
-    "GitHub": "https://github.com", 
-    "VK": "https://vk.com", 
-    "Steam": "https://steamcommunity.com"
-}
+token = "8739255331:AAHoQkAzn1Gmese9hn0_AgFpjXPuCIQdXCs"
+bot = telebot.TeleBot(token)
 
 @bot.message_handler(commands=['start'])
-def start(m):
-    bot.send_message(m.chat.id, "🕵️ Шерлок на связи. Пришли ник.")
+def send_welcome(m):
+    text = (
+        "🕵️ **OSINT Бот готов к работе.**\n\n"
+        "Отправь мне:\n"
+        "• **Никнейм** — для поиска по соцсетям\n"
+        "• **IP адрес** — для геолокации сервера\n"
+        "• **Email** — для проверки утечек"
+    )
+    bot.send_message(m.chat.id, text, parse_mode="Markdown")
 
-# Исправлено: добавлен content_types=
 @bot.message_handler(content_types=)
-def search(m):
+def handle_search(m):
     q = m.text.strip()
-    res = [f"🔍 Поиск: `{q}`"]
+    chat_id = m.chat.id
     
-    for n, u in SITES.items():
-        try:
-            # Проверяем доступность профиля
-            response = requests.get(u + q, timeout=5)
-            if response.status_code == 200:
-                res.append(f"✅ {n}: {u}{q}")
-        except Exception:
-            continue
-            
-    if len(res) > 1:
-        bot.send_message(m.chat.id, "\n".join(res), parse_mode="Markdown")
+    bot.send_message(chat_id, f"🔍 Начинаю сбор данных по запросу: `{q}`...", parse_mode="Markdown")
+
+    results = []
+
+    # 1. Если это IP
+    if q.count('.') == 3 and q.replace('.', '').isdigit():
+        results += ["--- [ IP ИНФОРМАЦИЯ ] ---"]
+        results += osint.search_ip(q)
+    
+    # 2. Если это почта
+    elif "@" in q:
+        results += ["--- [ ПРОВЕРКА ПОЧТЫ ] ---"]
+        results += osint.check_mail_leak(q)
+    
+    # 3. Иначе считаем это никнеймом
     else:
-        bot.send_message(m.chat.id, "❌ Ничего не найдено")
+        results += ["--- [ СОЦИАЛЬНЫЕ СЕТИ ] ---"]
+        res_socials = osint.search_socials(q)
+        if res_socials:
+            results += res_socials
+        else:
+            results.append("❌ Профилей не найдено")
+
+    final_text = "\n".join(results)
+    bot.send_message(chat_id, final_text if results else "Ничего не найдено.")
 
 if __name__ == '__main__':
     print("Бот запущен...")
